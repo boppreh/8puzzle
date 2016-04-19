@@ -1,84 +1,87 @@
 import pickle
 from queue import Queue
 
-final_state = ((1, 2, 3), (8, 0, 4), (7, 6, 5))
-
-def index_0(state):
-    for i in range(3):
-        if 0 in state[i]:
-            return (state[i].index(0), i)
+final_state = (1, 2, 3, 8, 0, 4, 7, 6, 5)
 
 def swap(state, src_index, dst_index):
-    src_x, src_y = src_index
-    dst_x, dst_y = dst_index
-    src = state[src_y][src_x]
-    dst = state[dst_y][dst_x]
-    mut = list(map(list, state))
-    mut[dst_y][dst_x] = src
-    mut[src_y][src_x] = dst
-    return tuple(map(tuple, mut))
+    s = list(state)
+    s[src_index], s[dst_index] = s[dst_index], s[src_index]
+    return tuple(s)
 
 def next_states(state):
-    x, y = index_0(state)
-    if x >= 1:
-        yield swap(state, (x, y), (x-1, y))
-    if x <= 1:
-        yield swap(state, (x, y), (x+1, y))
-    if y >= 1:
-        yield swap(state, (x, y), (x, y-1))
-    if y <= 1:
-        yield swap(state, (x, y), (x, y+1))
+    i = state.index(0)
+    if i%3 >= 1:
+        yield swap(state, i, i-1)
+    if i%3 <= 1:
+        yield swap(state, i, i+1)
+    if i//3 >= 1:
+        yield swap(state, i, i-3)
+    if i//3 <= 1:
+        yield swap(state, i, i+3)
 
-def format_state(state):
-    return '\n'.join(''.join(map(str, line)) for line in state)
+def str_to_state(str_state):
+    assert len(str_state) == 9
+    return tuple(int(c) for c in str_state)
+
+def pretty_print(state):
+    assert len(state) == 9
+    str_state = [str(i) for i in state]
+    lines = [' '.join(map(str, l)) for l in [state[:3], state[3:6], state[6:]]]
+    return '\n'.join(lines)
 
 def make_table():
-    all_states = {}
+    parents = {}
     boundary = Queue()
     boundary.put((None, final_state))
+
     while not boundary.empty():
         parent, state = boundary.get()
-        all_states[state] = parent
-        for next_state in next_states(state):
-            if next_state not in all_states:
-                boundary.put((state, next_state))
-        if len(all_states)%10000==0:
-            print(len(all_states))
-    print('Last state reached: {}'.format(format_state(state)))
+        parents[state] = parent
+        if len(parents)%10000==0:
+            print(len(parents))
 
-    pickle.dump(all_states, open('table.pkl', 'wb'))
-    return all_states
+        for next_state in next_states(state):
+            if next_state not in parents:
+                boundary.put((state, next_state))
+
+    print('Last state reached: {}'.format(pretty_print(state)))
+
+    pickle.dump(parents, open('table.pkl', 'wb'))
+    return parents
 
 def load_table():
     return pickle.load(open('table.pkl', 'rb'))
 
-def path_to_victory(state, all_states):
+def path_to_victory(state, parents):
     if state == final_state:
         return [final_state]
     else:
-        return [state] + path_to_victory(all_states[state], all_states)
-
-def parse_state(str_state):
-    ints = [int(c) for c in str_state]
-    return (tuple(ints[:3]), tuple(ints[3:6]), tuple(ints[6:]))
+        return [state] + path_to_victory(parents[state], parents)
 
 if __name__ == '__main__':
     try:
-        all_states = load_table()
+        parents = load_table()
+        print('Loaded existing table.\n\n')
     except IOError:
         print('Generating table...')
-        all_states = make_table()
+        parents = make_table()
         print('Table created.\n\n')
 
-    message = """Write your current state as a list of 9 numbers,
-with no spaces and the empty tile as 0:
-"""
-    state = parse_state(input(message))
+    while True:
+        line = input('Current state (e.g. 587106324): ')
+        if line.lower() in ('q', 'exit', 'quit'):
+            break
 
-    if state not in all_states:
-        print('Unreachable state.')
-        exit()
+        try:
+            state = str_to_state(line)
+        except (AssertionError, ValueError):
+            print('Invalid state.\n')
+            continue
 
-    steps = path_to_victory(state, all_states)
-    print('\n v\n'.join(format_state(s) for s in steps))
-    print('\n\n{} steps to victory.'.format(len(steps)))
+        if state not in parents:
+            print('Unreachable state.')
+            continue
+
+        steps = path_to_victory(state, parents)
+        print('\n\n  v\n\n'.join(pretty_print(s) for s in steps))
+        print('\n\n{} steps to victory.\n\n'.format(len(steps)))

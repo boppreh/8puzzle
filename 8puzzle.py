@@ -1,14 +1,18 @@
 import pickle
 from queue import Queue
 
-final_state = (1, 2, 3, 8, 0, 4, 7, 6, 5)
+final_state = (1, 2, 3,
+               8, 0, 4,
+               7, 6, 5)
 
 def swap(state, src_index, dst_index):
+    """ Swaps the numbers at the two given indexes. """
     s = list(state)
     s[src_index], s[dst_index] = s[dst_index], s[src_index]
     return tuple(s)
 
 def next_states(state):
+    """ Given a state generates the next (up to four) states one edit away. """
     i = state.index(0)
     if i%3 >= 1:
         yield swap(state, i, i-1)
@@ -20,16 +24,23 @@ def next_states(state):
         yield swap(state, i, i+3)
 
 def str_to_state(str_state):
-    assert len(str_state) == 9
+    """ Reads a sequence of 9 digits and returns the corresponding state. """
+    assert len(str_state) == 9 and sorted(str_state) == list('012345678')
     return tuple(int(c) for c in str_state)
 
 def pretty_print(state):
+    """ Returns a 3x3 string matrix representing the given state. """
     assert len(state) == 9
     str_state = [str(i) for i in state]
     lines = [' '.join(map(str, l)) for l in [state[:3], state[3:6], state[6:]]]
     return '\n'.join(lines)
 
 def make_table():
+    """
+    Generates a dict with all reachable states and their "parent" (the next
+    state closest to the solution). This table has ~180000 entries and is
+    persisted in a Pickle file "table.pkl".
+    """
     parents = {}
     boundary = Queue()
     boundary.put((None, final_state))
@@ -50,9 +61,13 @@ def make_table():
     return parents
 
 def load_table():
+    """ Loads a previously generated table. """
     return pickle.load(open('table.pkl', 'rb'))
 
 def path_to_victory(state, parents):
+    """
+    Given a path a the parents table, returns a list of the steps to solution.
+    """
     if state == final_state:
         return [final_state]
     else:
